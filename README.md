@@ -35,3 +35,5 @@ metric_prefix = "me.jawbone.sleep"
 ```
 
 Now you just need to run the script whenever you Sync your Jawbone Up, and it'll send your sleep metrics to graphite ready for adding to Dashboard, creating Nagios alerts and so on.
+
+Please note, each time it's run, the script will send all sleep data dated since *yesterday at midnight* to graphite. This avoids sending repeated old data to your graphite server.
