@@ -24,7 +24,7 @@ Token: bhdoijfoijdoipjfdspad
 Xid: sdsajdosajdioaj
 ```
 
-The next step is to copy your XID and Token into the ```xid``` and ```token``` variables at the top of the ```jawboneup_to_graphite``` script. You'll also want to set your graphite host, port, and the prefix you want to give your metrics:
+The next step is to copy your XID and Token into the ```xid``` and ```token``` variables at the top of the ```jawboneup_to_graphite.rb``` script. You'll also want to set your graphite host, port, and the prefix you want to give your metrics:
 
 ```
 xid = 'bhdoijfoijdoipjfdspad'
