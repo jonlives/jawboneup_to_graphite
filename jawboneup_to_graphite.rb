@@ -49,35 +49,54 @@ else
 
     sleep_info = up.get_sleep_summary
     sleep_info['items'].each do |item|
-    if today < item['time_created']
-      date = Time.at item['time_created']
-      puts "\n"
-      puts date.to_s + " " + item['title']
-      puts "Timestamp: #{item['time_created']}"
-      puts "Light Sleep: #{item['details']['light']/60}"
-      puts "Deep Sleep: #{item['details']['deep']/60}"
-      puts "Woke Up: #{item['details']['awakenings']} time(s)"
-      puts "Sleep Quality: #{item['details']['quality']}"
+      if today < item['time_created']
+        date = Time.at item['time_created']
+        puts "\n"
+        puts "Sleep Summary Data:"
+        puts date.to_s + " " + item['title']
+        puts "Timestamp: #{item['time_created']}"
+        puts "Light Sleep: #{item['details']['light']/60}"
+        puts "Deep Sleep: #{item['details']['deep']/60}"
+        puts "Woke Up: #{item['details']['awakenings']} time(s)"
+        puts "Sleep Quality: #{item['details']['quality']}"
 
-      puts "Sending #{metric_prefix}.light_sleep to #{graphite_host}"
-      message = "#{metric_prefix}.light_sleep #{item['details']['light']/60} #{item['time_created']}\n"
-      socket = TCPSocket.open(graphite_host, graphite_port)
-      socket.write(message)
+        puts "Sending #{metric_prefix}.light_sleep to #{graphite_host}"
+        message = "#{metric_prefix}.light_sleep #{item['details']['light']/60} #{item['time_created']}\n"
+        socket = TCPSocket.open(graphite_host, graphite_port)
+        socket.write(message)
 
-      puts "Sending #{metric_prefix}.deep_sleep to #{graphite_host}"
-      message = "#{metric_prefix}.deep_sleep #{item['details']['deep']/60} #{item['time_created']}\n"
-      socket = TCPSocket.open(graphite_host, graphite_port)
-      socket.write(message)
+        puts "Sending #{metric_prefix}.deep_sleep to #{graphite_host}"
+        message = "#{metric_prefix}.deep_sleep #{item['details']['deep']/60} #{item['time_created']}\n"
+        socket = TCPSocket.open(graphite_host, graphite_port)
+        socket.write(message)
 
-      puts "Sending #{metric_prefix}.awakenings to #{graphite_host}"
-      message = "#{metric_prefix}.awakenings #{item['details']['awakenings']} #{item['time_created']}\n"
-      socket = TCPSocket.open(graphite_host, graphite_port)
-      socket.write(message)
+        puts "Sending #{metric_prefix}.awakenings to #{graphite_host}"
+        message = "#{metric_prefix}.awakenings #{item['details']['awakenings']} #{item['time_created']}\n"
+        socket = TCPSocket.open(graphite_host, graphite_port)
+        socket.write(message)
 
-      puts "Sending #{metric_prefix}.quality to #{graphite_host}"
-      message = "#{metric_prefix}.quality #{item['details']['quality']} #{item['time_created']}\n"
-      socket = TCPSocket.open(graphite_host, graphite_port)
-      socket.write(message)
-    end
+        puts "Sending #{metric_prefix}.quality to #{graphite_host}"
+        message = "#{metric_prefix}.quality #{item['details']['quality']} #{item['time_created']}\n"
+        socket = TCPSocket.open(graphite_host, graphite_port)
+        socket.write(message)
+
+
+        puts "\n"
+        puts "Getting Detailed Sleep Data.."
+        user_xid = item['xid']
+        detailed = up.get("/nudge/api/sleeps/#{user_xid}/snapshot")
+        puts "Sending Detailed Sleep Data to metric #{metric_prefix}.detailed_sleep on #{graphite_host}"
+        message = "#{metric_prefix}.detailed_sleep 0 #{detailed['data'].first.first-1}\n"
+        socket = TCPSocket.open(graphite_host, graphite_port)
+        socket.write(message)
+        detailed['data'].each do |d|
+          message = "#{metric_prefix}.detailed_sleep #{d.last} #{d.first}\n"
+          socket = TCPSocket.open(graphite_host, graphite_port)
+          socket.write(message)
+        end
+        message = "#{metric_prefix}.detailed_sleep 0 #{detailed['data'].last.first+1}\n"
+        socket = TCPSocket.open(graphite_host, graphite_port)
+        socket.write(message)
+      end
   end
 end
