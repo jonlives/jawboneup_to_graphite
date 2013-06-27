@@ -90,7 +90,7 @@ else
         socket = TCPSocket.open(graphite_host, graphite_port)
         socket.write(message)
         detailed['data'].each do |d|
-          message = "#{metric_prefix}.detailed_sleep #{d.last} #{d.first}\n"
+          message = "#{metric_prefix}.detailed_sleep #{d.last-1} #{d.first}\n"
           socket = TCPSocket.open(graphite_host, graphite_port)
           socket.write(message)
         end
