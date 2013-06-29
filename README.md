@@ -9,6 +9,7 @@ This script requires a couple of gems to function. Run the following ```gem inst
 
 ```
 gem install choice
+gem install faraday
 gem install jawbone-up
 ```
 
