@@ -93,10 +93,10 @@ else
     socket.write(sleep_detail_message)
 
     # sleep summary
-    sleep_summary_message = []
     sleep_info = up.get_sleep_summary
     sleep_info['items'].each do |item|
       if today < item['time_created']
+        sleep_summary_message = []
         date = Time.at item['time_created']
         puts "\n"
         puts "Sleep Summary Data:"
@@ -107,7 +107,7 @@ else
         puts "Woke Up: #{item['details']['awakenings']} time(s)"
         puts "Sleep Quality: #{item['details']['quality']}"
 
-        message = "#{$metric_prefix}.summary.light_minutes#{item['details']['light']/60} #{item['time_created']}\n"
+        message = "#{$metric_prefix}.summary.light_minutes #{item['details']['light']/60} #{item['time_created']}\n"
         sleep_summary_message.push( message )
 
         message = "#{$metric_prefix}.summary.deep_minutes #{item['details']['deep']/60} #{item['time_created']}\n"
