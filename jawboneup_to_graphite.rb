@@ -3,6 +3,7 @@
 require 'jawbone-up'
 require 'date'
 require 'choice'
+require 'ap'
 
 # PARAMETERS
 
@@ -10,11 +11,11 @@ require 'choice'
 # Then copy the xid and token returned into the below parameters
 # You can also customise the graphite host, port and metric prefix.
 
-xid = ''
 token = ''
-graphite_host = "my.graphite.server"
+xid = ''
+graphite_host = "my.graphite.com"
 graphite_port = "2003"
-metric_prefix = "me.jawbone.sleep"
+$metric_prefix = "my.sleep"
 
 Choice.options do
   header ""
@@ -24,6 +25,32 @@ Choice.options do
     long  '--get-token'
     desc  'Get a login token from Jawbone'
   end
+end
+
+# Ttake an array of arrays and build up a set of data points to illustrate our sleep.
+# Since the Jawbone simply takes snapshots of one's sleep state at (relatively) regular periods,
+# fill in the blanks with the known sleep state until we encounter a sleep state change and
+# continue in this way until the end of the given data set.
+# Return a string that will be sent to Graphite
+$sleep_state_types = [ 'awake', 'light', 'deep' ]
+def extrapolate_sleeps( sleep_state_details )
+    sleep_state_details.flatten!(1)
+    epoch_current = 0   # start fresh
+    message = []
+    sleep_state_details.each do |sleep|
+        sleep_epoch, sleep_state = sleep
+        # start building at the point our data starts
+        if epoch_current == 0
+            epoch_current = sleep_epoch
+            next
+        end
+
+        until epoch_current > sleep_epoch.to_i do
+            epoch_current = epoch_current + 60
+            message.push( "#{$metric_prefix}.details.#{$sleep_state_types[ sleep_state - 1 ]} #{sleep_state} #{epoch_current}" )
+        end
+    end
+    message = message.join("\n") + "\n"
 end
 
 if Choice.choices[:get_token]
@@ -47,9 +74,29 @@ else
 
     today = Date.today.prev_day.to_time.to_i
 
+    # sleep detail
+    sleep_detail_items = up.get_sleep_details
+    sleep_xids = [] # we might have multiple sleeps to look at (think power naps!)
+    sleep_detail_items['items'].each do |item|
+        if today < item['time_created']
+            sleep_xids.push( item['xid'] )
+        end
+    end
+
+    sleep_state_details = []
+    sleep_xids.each do |sleep_xid|
+        sleep_state_details.push( up.get_sleep_snapshot( sleep_xid ) )
+    end
+    sleep_detail_message = extrapolate_sleeps( sleep_state_details )
+    puts "Sending extrapolated sleep state data to #{graphite_host}"
+    socket = TCPSocket.open(graphite_host, graphite_port)
+    socket.write(sleep_detail_message)
+
+    # sleep summary
     sleep_info = up.get_sleep_summary
     sleep_info['items'].each do |item|
       if today < item['time_created']
+        sleep_summary_message = []
         date = Time.at item['time_created']
         puts "\n"
         puts "Sleep Summary Data:"
@@ -60,43 +107,22 @@ else
         puts "Woke Up: #{item['details']['awakenings']} time(s)"
         puts "Sleep Quality: #{item['details']['quality']}"
 
-        puts "Sending #{metric_prefix}.light_sleep to #{graphite_host}"
-        message = "#{metric_prefix}.light_sleep #{item['details']['light']/60} #{item['time_created']}\n"
-        socket = TCPSocket.open(graphite_host, graphite_port)
-        socket.write(message)
+        message = "#{$metric_prefix}.summary.light_minutes #{item['details']['light']/60} #{item['time_created']}\n"
+        sleep_summary_message.push( message )
 
-        puts "Sending #{metric_prefix}.deep_sleep to #{graphite_host}"
-        message = "#{metric_prefix}.deep_sleep #{item['details']['deep']/60} #{item['time_created']}\n"
-        socket = TCPSocket.open(graphite_host, graphite_port)
-        socket.write(message)
+        message = "#{$metric_prefix}.summary.deep_minutes #{item['details']['deep']/60} #{item['time_created']}\n"
+        sleep_summary_message.push( message )
 
-        puts "Sending #{metric_prefix}.awakenings to #{graphite_host}"
-        message = "#{metric_prefix}.awakenings #{item['details']['awakenings']} #{item['time_created']}\n"
-        socket = TCPSocket.open(graphite_host, graphite_port)
-        socket.write(message)
+        message = "#{$metric_prefix}.summary.awakenings #{item['details']['awakenings']} #{item['time_created']}\n"
+        sleep_summary_message.push( message )
 
-        puts "Sending #{metric_prefix}.quality to #{graphite_host}"
-        message = "#{metric_prefix}.quality #{item['details']['quality']} #{item['time_created']}\n"
-        socket = TCPSocket.open(graphite_host, graphite_port)
-        socket.write(message)
+        message = "#{$metric_prefix}.summary.quality #{item['details']['quality']} #{item['time_created']}\n"
+        sleep_summary_message.push( message )
 
-
-        puts "\n"
-        puts "Getting Detailed Sleep Data.."
-        user_xid = item['xid']
-        detailed = up.get("/nudge/api/sleeps/#{user_xid}/snapshot")
-        puts "Sending Detailed Sleep Data to metric #{metric_prefix}.detailed_sleep on #{graphite_host}"
-        message = "#{metric_prefix}.detailed_sleep 0 #{detailed['data'].first.first-1}\n"
+        # send it all up to Graphite
+        sleep_summary_message = sleep_summary_message.join( "\n" ) + "\n"
         socket = TCPSocket.open(graphite_host, graphite_port)
-        socket.write(message)
-        detailed['data'].each do |d|
-          message = "#{metric_prefix}.detailed_sleep #{d.last-1} #{d.first}\n"
-          socket = TCPSocket.open(graphite_host, graphite_port)
-          socket.write(message)
-        end
-        message = "#{metric_prefix}.detailed_sleep 0 #{detailed['data'].last.first+1}\n"
-        socket = TCPSocket.open(graphite_host, graphite_port)
-        socket.write(message)
+        socket.write(sleep_summary_message)
       end
   end
 end
