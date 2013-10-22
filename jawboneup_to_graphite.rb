@@ -25,6 +25,10 @@ Choice.options do
     long  '--get-token'
     desc  'Get a login token from Jawbone'
   end
+  option :manual_date, :required => false do
+    long  '--set-date=2013-09-29'
+    desc  'Override yesterdays data for another date'
+  end
 end
 
 # Ttake an array of arrays and build up a set of data points to illustrate our sleep.
@@ -72,7 +76,11 @@ else
       :token => token
     }
 
-    today = Date.today.prev_day.to_time.to_i
+    if Choice.choices[:manual_date] then
+      today = Time.parse(Choice.choices[:manual_date]).to_i
+    else
+      today = Date.today.prev_day.to_time.to_i
+    end
 
     # sleep detail
     sleep_detail_items = up.get_sleep_details
@@ -83,10 +91,12 @@ else
         end
     end
 
+    sleep_xids = sleep_xids.sort
     sleep_state_details = []
     sleep_xids.each do |sleep_xid|
         sleep_state_details.push( up.get_sleep_snapshot( sleep_xid ) )
     end
+
     sleep_detail_message = extrapolate_sleeps( sleep_state_details )
     puts "Sending extrapolated sleep state data to #{graphite_host}"
     socket = TCPSocket.open(graphite_host, graphite_port)
