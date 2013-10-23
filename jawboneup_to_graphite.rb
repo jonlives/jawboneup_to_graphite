@@ -41,16 +41,22 @@ def extrapolate_sleeps( sleep_state_details )
     sleep_state_details.flatten!(1)
     message = []
     # find the state change we're on now, and the next so that we when to start/stop extrapolating
-    sleep_state_details.each_cons(2) do |current_sleep_state_change, next_sleep_state_change|
+    sleep_state_details.each_with_index {|item, index|
+        current_sleep_state_change = sleep_state_details[index]
+        next_sleep_state_change = sleep_state_details[index + 1]
         current_sleep_epoch, current_sleep_state = current_sleep_state_change
         next_sleep_epoch, next_sleep_state = next_sleep_state_change
 
-        # start building at the point our data starts
-        until current_sleep_epoch > next_sleep_epoch.to_i do
+        # if we've reached the last data point, artificially extend it 2 minutes so it's visible on the graph
+        if next_sleep_state_change.nil?
+            next_sleep_epoch = current_sleep_epoch + 120
+        end
+
+        until current_sleep_epoch >= next_sleep_epoch.to_i do
             current_sleep_epoch = current_sleep_epoch + 60
             message.push( "#{$metric_prefix}.details.#{$sleep_state_types[ current_sleep_state - 1 ]} #{current_sleep_state} #{current_sleep_epoch}" )
         end
-    end
+    }
     message = message.join("\n") + "\n"
 end
 
