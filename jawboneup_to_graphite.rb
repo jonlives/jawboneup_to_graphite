@@ -31,7 +31,7 @@ Choice.options do
   end
 end
 
-# Ttake an array of arrays and build up a set of data points to illustrate our sleep.
+# Take an array of arrays and build up a set of data points to illustrate our sleep.
 # Since the Jawbone simply takes snapshots of one's sleep state at (relatively) regular periods,
 # fill in the blanks with the known sleep state until we encounter a sleep state change and
 # continue in this way until the end of the given data set.
@@ -39,19 +39,16 @@ end
 $sleep_state_types = [ 'awake', 'light', 'deep' ]
 def extrapolate_sleeps( sleep_state_details )
     sleep_state_details.flatten!(1)
-    epoch_current = 0   # start fresh
     message = []
-    sleep_state_details.each do |sleep|
-        sleep_epoch, sleep_state = sleep
-        # start building at the point our data starts
-        if epoch_current == 0
-            epoch_current = sleep_epoch
-            next
-        end
+    # find the state change we're on now, and the next so that we when to start/stop extrapolating
+    sleep_state_details.each_cons(2) do |current_sleep_state_change, next_sleep_state_change|
+        current_sleep_epoch, current_sleep_state = current_sleep_state_change
+        next_sleep_epoch, next_sleep_state = next_sleep_state_change
 
-        until epoch_current > sleep_epoch.to_i do
-            epoch_current = epoch_current + 60
-            message.push( "#{$metric_prefix}.details.#{$sleep_state_types[ sleep_state - 1 ]} #{sleep_state} #{epoch_current}" )
+        # start building at the point our data starts
+        until current_sleep_epoch > next_sleep_epoch.to_i do
+            current_sleep_epoch = current_sleep_epoch + 60
+            message.push( "#{$metric_prefix}.details.#{$sleep_state_types[ current_sleep_state - 1 ]} #{current_sleep_state} #{current_sleep_epoch}" )
         end
     end
     message = message.join("\n") + "\n"
