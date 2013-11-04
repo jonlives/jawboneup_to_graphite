@@ -25,9 +25,13 @@ Choice.options do
     long  '--get-token'
     desc  'Get a login token from Jawbone'
   end
+  option :manual_date, :required => false do
+    long  '--set-date=2013-09-29'
+    desc  'Override yesterdays data for another date'
+  end
 end
 
-# Ttake an array of arrays and build up a set of data points to illustrate our sleep.
+# Take an array of arrays and build up a set of data points to illustrate our sleep.
 # Since the Jawbone simply takes snapshots of one's sleep state at (relatively) regular periods,
 # fill in the blanks with the known sleep state until we encounter a sleep state change and
 # continue in this way until the end of the given data set.
@@ -35,21 +39,24 @@ end
 $sleep_state_types = [ 'awake', 'light', 'deep' ]
 def extrapolate_sleeps( sleep_state_details )
     sleep_state_details.flatten!(1)
-    epoch_current = 0   # start fresh
     message = []
-    sleep_state_details.each do |sleep|
-        sleep_epoch, sleep_state = sleep
-        # start building at the point our data starts
-        if epoch_current == 0
-            epoch_current = sleep_epoch
-            next
+    # find the state change we're on now, and the next so that we when to start/stop extrapolating
+    sleep_state_details.each_with_index {|item, index|
+        current_sleep_state_change = sleep_state_details[index]
+        next_sleep_state_change = sleep_state_details[index + 1]
+        current_sleep_epoch, current_sleep_state = current_sleep_state_change
+        next_sleep_epoch, next_sleep_state = next_sleep_state_change
+
+        # if we've reached the last data point, artificially extend it 2 minutes so it's visible on the graph
+        if next_sleep_state_change.nil?
+            next_sleep_epoch = current_sleep_epoch + 120
         end
 
-        until epoch_current > sleep_epoch.to_i do
-            epoch_current = epoch_current + 60
-            message.push( "#{$metric_prefix}.details.#{$sleep_state_types[ sleep_state - 1 ]} #{sleep_state} #{epoch_current}" )
+        until current_sleep_epoch >= next_sleep_epoch.to_i do
+            current_sleep_epoch = current_sleep_epoch + 60
+            message.push( "#{$metric_prefix}.details.#{$sleep_state_types[ current_sleep_state - 1 ]} #{current_sleep_state} #{current_sleep_epoch}" )
         end
-    end
+    }
     message = message.join("\n") + "\n"
 end
 
@@ -72,7 +79,11 @@ else
       :token => token
     }
 
-    today = Date.today.prev_day.to_time.to_i
+    if Choice.choices[:manual_date] then
+      today = Time.parse(Choice.choices[:manual_date]).to_i
+    else
+      today = Date.today.prev_day.to_time.to_i
+    end
 
     # sleep detail
     sleep_detail_items = up.get_sleep_details
@@ -83,10 +94,12 @@ else
         end
     end
 
+    sleep_xids = sleep_xids.sort
     sleep_state_details = []
     sleep_xids.each do |sleep_xid|
         sleep_state_details.push( up.get_sleep_snapshot( sleep_xid ) )
     end
+
     sleep_detail_message = extrapolate_sleeps( sleep_state_details )
     puts "Sending extrapolated sleep state data to #{graphite_host}"
     socket = TCPSocket.open(graphite_host, graphite_port)
