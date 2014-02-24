@@ -118,14 +118,14 @@ else
         puts date.to_s + " " + item['title']
         puts "Timestamp: #{item['time_created']}"
         puts "Light Sleep: #{item['details']['light']/60}"
-        puts "Deep Sleep: #{item['details']['deep']/60}"
+        puts "Deep Sleep: #{item['details']['sound']/60}"
         puts "Woke Up: #{item['details']['awakenings']} time(s)"
         puts "Sleep Quality: #{item['details']['quality']}"
 
         message = "#{$metric_prefix}.summary.light_minutes #{item['details']['light']/60} #{item['time_created']}\n"
         sleep_summary_message.push( message )
 
-        message = "#{$metric_prefix}.summary.deep_minutes #{item['details']['deep']/60} #{item['time_created']}\n"
+        message = "#{$metric_prefix}.summary.deep_minutes #{item['details']['sound']/60} #{item['time_created']}\n"
         sleep_summary_message.push( message )
 
         message = "#{$metric_prefix}.summary.awakenings #{item['details']['awakenings']} #{item['time_created']}\n"
