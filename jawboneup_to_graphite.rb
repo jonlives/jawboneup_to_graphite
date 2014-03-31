@@ -82,7 +82,11 @@ else
     }
 
     if Choice.choices[:manual_date] then
-      today = Time.parse(Choice.choices[:manual_date]).to_i
+      date_parts = Choice.choices[:manual_date].split('-')
+      year = date_parts[0].to_i
+      month = date_parts[1].to_i
+      day = date_parts[2].to_i
+      today = Time.new(year, month, day).to_i
     else
       today = Date.today.prev_day.to_time.to_i
     end
