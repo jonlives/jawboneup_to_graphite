@@ -66,7 +66,9 @@ if Choice.choices[:get_token]
   print "Jawbone Username: "
   username = STDIN.gets.chomp
   print "Jawbone Password: "
+  system 'stty -echo'
   password = STDIN.gets.chomp
+  system 'stty echo'
   up = JawboneUP::Session.new
   up.signin username, password
   puts "Token: #{up.token}"
