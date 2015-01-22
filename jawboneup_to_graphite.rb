@@ -109,7 +109,13 @@ else
     end
 
     sleep_detail_message = extrapolate_sleeps( sleep_state_details )
-    puts "Sending extrapolated sleep state data to #{graphite_host}"
+    pretty_today = DateTime.strptime(today.to_s, '%s').to_s.split("T")[0]
+    if sleep_detail_message.eql? "\n"
+      puts "No sleep data found for #{pretty_today}, has band synced?"
+    else
+      puts sleep_detail_message
+    end
+    puts "Sending extrapolated sleep state data for #{pretty_today} to #{graphite_host}"
     socket = TCPSocket.open(graphite_host, graphite_port)
     socket.write(sleep_detail_message)
 
