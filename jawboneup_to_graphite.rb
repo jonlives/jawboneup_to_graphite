@@ -1,34 +1,9 @@
 #!/usr/bin/env ruby
-
+require 'pathname'
 require 'jawbone-up'
 require 'date'
 require 'choice'
-
-# PARAMETERS
-
-# Run this script with the --get-token option first
-# Then copy the xid and token returned into the below parameters
-# You can also customise the graphite host, port and metric prefix.
-
-token = ''
-xid = ''
-graphite_host = "my.graphite.com"
-graphite_port = "2003"
-$metric_prefix = "my.sleep"
-
-Choice.options do
-  header ""
-  header "Specific options:"
-
-  option :get_token, :required => false do
-    long  '--get-token'
-    desc  'Get a login token from Jawbone'
-  end
-  option :manual_date, :required => false do
-    long  '--set-date=2013-09-29'
-    desc  'Override yesterdays data for another date'
-  end
-end
+require 'app_conf'
 
 # Take an array of arrays and build up a set of data points to illustrate our sleep.
 # Since the Jawbone simply takes snapshots of one's sleep state at (relatively) regular periods,
@@ -62,7 +37,35 @@ def extrapolate_sleeps( sleep_state_details )
     message = message.join("\n") + "\n"
 end
 
+# Load the config file
+config = AppConf.new
+config.load("#{File.expand_path(File.dirname(Pathname.new(__FILE__).realpath))}/config.yml")
+
+Choice.options do
+  header ""
+  header "Specific options:"
+
+  option :get_token, :required => false do
+    long  '--get-token'
+    desc  'Get a login token from Jawbone'
+  end
+  option :manual_date, :required => false do
+    long  '--set-date=2013-09-29'
+    desc  'Override yesterdays data for another date'
+  end
+end
+
 if Choice.choices[:get_token]
+  # Make sure we don't generate new tokens unless people actually want to.
+  if not (config['jawbone']['xid'].empty? and config['jawbone']['token'].empty?)
+    puts "Jawbone token or xid already found in your config.yml. Do you wish to generate new ones? y/N"
+    choice = STDIN.gets.chomp.downcase
+    if choice != "y"
+      puts "You said #{choice} instead of y, exiting..."
+      exit 1
+    end
+  end
+
   print "Jawbone Username: "
   username = STDIN.gets.chomp
   print "Jawbone Password: "
@@ -73,14 +76,16 @@ if Choice.choices[:get_token]
   up.signin username, password
   puts "Token: #{up.token}"
   puts "Xid: #{up.xid}"
+  puts "Please save these values to your config.yml file in this directory."
+  exit
 else
-    if xid.empty? or token.empty?
-      puts "Invalid token and xid. Please run the script with the --get-token option first, then paste the values into the parameters at the top of the script."
+    if config['jawbone']['xid'].empty? or config['jawbone']['token'].empty?
+      puts "Jawbone token or xid are missing. Please run the script with the --get-token option first, then save the values into config.yml"
       exit 1
     end
     up = JawboneUP::Session.new :auth => {
-      :xid => xid,
-      :token => token
+      :xid => config['jawbone']['xid'],
+      :token => config['jawbone']['token']
     }
 
     if Choice.choices[:manual_date] then
@@ -115,8 +120,8 @@ else
     else
       puts sleep_detail_message
     end
-    puts "Sending extrapolated sleep state data for #{pretty_today} to #{graphite_host}"
-    socket = TCPSocket.open(graphite_host, graphite_port)
+    puts "Sending extrapolated sleep state data for #{pretty_today} to #{config['graphite']['host']}"
+    socket = TCPSocket.open(config['graphite']['host'], config['graphite']['port'])
     socket.write(sleep_detail_message)
 
     # sleep summary
@@ -148,7 +153,7 @@ else
 
         # send it all up to Graphite
         sleep_summary_message = sleep_summary_message.join( "\n" ) + "\n"
-        socket = TCPSocket.open(graphite_host, graphite_port)
+        socket = TCPSocket.open(config['graphite']['host'], config['graphite']['port'])
         socket.write(sleep_summary_message)
       end
   end
