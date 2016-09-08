@@ -5,12 +5,11 @@ A little script for sending Sleep metrics from your Jawbone Up to Graphite
 
 ##Installation
 
-This script requires a couple of gems to function. Run the following ```gem install``` commands before using:
+This script requires a couple of gems to function. You can use bundler to install the necessary gems:
 
 ```
-gem install choice
-gem install faraday
-gem install jawbone-up
+gem install bundler
+bundle install
 ```
 
 ##Instructions
@@ -25,16 +24,22 @@ Token: bhdoijfoijdoipjfdspad
 Xid: sdsajdosajdioaj
 ```
 
-The next step is to copy your XID and Token into the ```xid``` and ```token``` variables at the top of the ```jawboneup_to_graphite.rb``` script. You'll also want to set your graphite host, port, and the prefix you want to give your metrics:
+The next step is to copy your XID and Token into the ```xid``` and ```token``` variables specified in the ```config.yml``` file (you can copy ```config.yml.example``` to get you started). ```config.yml``` should be in the same directory as the ```jawbone_to_graphite.rb``` script. You'll also want to set your graphite host, port, and the prefix you want to give your metrics:
 
 ```
-xid = 'bhdoijfoijdoipjfdspad'
-token = 'sdsajdosajdioaj'
-graphite_host = "my.graphite.server"
-graphite_port = "2003"
-metric_prefix = "me.jawbone.sleep"
+jawbone:
+  xid: 'bhdoijfoijdoipjfdspad'
+  token: 'sdsajdosajdioaj'
+graphite:
+  host: "my.graphite.server"
+  port: "2003"
+  metric_prefix: "me.jawbone.sleep"
 ```
 
-Now you just need to run the script whenever you Sync your Jawbone Up, and it'll send your sleep metrics to graphite ready for adding to Dashboard, creating Nagios alerts and so on.
+Now you just need to run the script whenever you sync your Jawbone Up, and it'll send your sleep metrics to graphite, ready for adding to dashboards, creating Nagios alerts, and so on.
 
-Please note, each time it's run, the script will send all sleep data dated since *yesterday at midnight* to graphite. This avoids sending repeated old data to your graphite server.
+Please note, each time it's run, the script will send all sleep data dated since *yesterday at midnight* to graphite. This avoids sending repeated old data to your graphite server. If you want to send data for a different date, you can use the ```--set-date``` option:
+
+```
+jawbone_to_graphite.rb --set-date=2015-03-29
+```
